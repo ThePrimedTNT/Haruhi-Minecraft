@@ -1,7 +1,8 @@
 package ai.haruhi.minecraft.networking
 
-import ai.haruhi.minecraft.networking.handshaking.ServerBoundHandshakePacket
+import ai.haruhi.minecraft.networking.handshaking.IncomingHandshakePacket
 import ai.haruhi.minecraft.networking.serialization.PacketFormat
+import ai.haruhi.minecraft.networking.serialization.PacketSerializer
 import ai.haruhi.minecraft.networking.serialization.VarIntSerializer
 import io.netty.buffer.Unpooled
 import org.junit.Test
@@ -25,19 +26,26 @@ class SerializationTest {
 
     @Test
     fun test() {
-        val handshakePacket = ServerBoundHandshakePacket(
+        val serializer = PacketSerializer(
+            mapOf(
+                0x0 to PacketSerializer.Entry(IncomingHandshakePacket.serializer())
+            )
+        )
+
+        val handshakePacket = IncomingHandshakePacket(
             protocolVersion = ProtocolVersion.CURRENT.protocolNum,
             serverAddress = "127.0.0.1",
             serverPort = 25565,
             nextState = 1
         )
 
-        val encodedPacket = packetFormat.dump(ServerBoundHandshakePacket.serializer(), handshakePacket)
+        val encodedPacket = packetFormat.dump(serializer, handshakePacket)
 
         println(encodedPacket.toString(Charsets.UTF_8))
 
-        val decodedPacket = packetFormat.load(ServerBoundHandshakePacket.serializer(), encodedPacket)
+        val decodedPacket = packetFormat.load(serializer, encodedPacket)
 
         println(decodedPacket)
     }
 }
+
