@@ -21,7 +21,9 @@ allprojects {
 
     dependencies {
         implementation(kotlin("stdlib-jdk8"))
-        implementation(group = "io.netty", name = "netty-all", version = "4.1.48.Final")
+        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-runtime", version = "0.20.0")
+
+        testImplementation(group = "junit", name = "junit", version = "4.12")
     }
 
     configure<JavaPluginConvention> {
