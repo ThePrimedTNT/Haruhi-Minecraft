@@ -19,3 +19,17 @@ object VarIntSerializer : KSerializer<Int> {
         packetEncoder.encodeVarInt(value)
     }
 }
+
+object VarLongSerializer : KSerializer<Long> {
+    override val descriptor = PrimitiveDescriptor("VarLongSerializer", PrimitiveKind.LONG)
+
+    override fun deserialize(decoder: Decoder): Long {
+        val packetDecoder = decoder as PacketFormat.PacketDecoder
+        return packetDecoder.decodeVarLong()
+    }
+
+    override fun serialize(encoder: Encoder, value: Long) {
+        val packetEncoder = encoder as PacketFormat.PacketEncoder
+        packetEncoder.encodeVarLong(value)
+    }
+}

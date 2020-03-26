@@ -54,6 +54,8 @@ class PacketFormat(
             return if (index < descriptor.elementsCount) index else READ_DONE
         }
 
+        override fun decodeSequentially(): Boolean = true
+
         override fun decodeBoolean(): Boolean = inByteBuf.readBoolean()
         override fun decodeByte(): Byte = inByteBuf.readByte()
         override fun decodeShort(): Short = inByteBuf.readShort()
@@ -65,6 +67,7 @@ class PacketFormat(
         override fun decodeString(): String = inByteBuf.decodeString()
 
         fun decodeVarInt(): Int = inByteBuf.decodeVarInt()
+        fun decodeVarLong(): Long = inByteBuf.decodeVarLong()
     }
 
     internal open class PacketEncoder(private val outByteBuf: ByteBuf) : AbstractEncoder() {
@@ -105,6 +108,10 @@ class PacketFormat(
             outByteBuf.encodeVarInt(value)
         }
 
+        fun encodeVarLong(value: Long) {
+            outByteBuf.encodeVarLong(value)
+        }
+
         override fun endStructure(descriptor: SerialDescriptor) {
         }
     }
@@ -118,10 +125,19 @@ fun ByteBuf.decodeString(): String {
     }.toString(Charsets.UTF_8)
 }
 
+fun ByteBuf.encodeString(value: String) {
+    val byteArrayStr = value.toByteArray(Charsets.UTF_8)
+    require(byteArrayStr.size <= 32767) {
+        "Max string size is 32767 but got string with ${byteArrayStr.size} bytes"
+    }
+    encodeVarInt(byteArrayStr.size)
+    writeBytes(byteArrayStr)
+}
+
 fun ByteBuf.decodeVarInt(): Int {
     var numRead = 0
     var result = 0
-    var readByte: Byte = 0
+    var readByte: Byte
     do {
         readByte = readByte()
         val value = (readByte.toInt() and 0b01111111)
@@ -130,15 +146,6 @@ fun ByteBuf.decodeVarInt(): Int {
         if (numRead > 5) error("VarInt is too big")
     } while ((readByte.toInt() and 0b10000000) != 0)
     return result
-}
-
-fun ByteBuf.encodeString(value: String) {
-    val byteArrayStr = value.toByteArray(Charsets.UTF_8)
-    require(byteArrayStr.size <= 32767) {
-        "Max string size is 32767 but got string with ${byteArrayStr.size} bytes"
-    }
-    encodeVarInt(byteArrayStr.size)
-    writeBytes(byteArrayStr)
 }
 
 fun ByteBuf.encodeVarInt(value: Int) {
@@ -150,4 +157,29 @@ fun ByteBuf.encodeVarInt(value: Int) {
     }
 
     writeByte(leftToEncode)
+}
+
+fun ByteBuf.decodeVarLong(): Long {
+    var numRead = 0
+    var result = 0L
+    var readByte: Byte
+    do {
+        readByte = readByte()
+        val value = (readByte.toInt() and 0b01111111).toLong()
+        result = result or (value shl (7 * numRead))
+        numRead++
+        if(numRead > 10) error("VarLong is too big")
+    } while((readByte.toInt() and 0b10000000) != 0)
+    return result
+}
+
+fun ByteBuf.encodeVarLong(value: Long) {
+    var leftToEncode = value
+
+    while ((leftToEncode and -128) != 0L) {
+        writeByte((leftToEncode and 127 or 128).toInt())
+        leftToEncode = leftToEncode ushr 7
+    }
+
+    writeByte(leftToEncode.toInt())
 }
