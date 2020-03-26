@@ -18,13 +18,26 @@ class PacketFormat(
     override val context: SerialModule = EmptyModule
 ) : BinaryFormat {
 
-    override fun <T> dump(serializer: SerializationStrategy<T>, value: T): ByteArray =
-        Unpooled.buffer().also { bytes ->
-            dumpTo(serializer, value, bytes)
-        }.array()
+    override fun <T> dump(serializer: SerializationStrategy<T>, value: T): ByteArray {
+        val tempBuffer = Unpooled.buffer()
+        try {
+            dumpTo(serializer, value, tempBuffer)
+            val result = ByteArray(tempBuffer.readableBytes())
+            tempBuffer.readBytes(result)
+            return result
+        } finally {
+            tempBuffer.release()
+        }
+    }
 
-    override fun <T> load(deserializer: DeserializationStrategy<T>, bytes: ByteArray): T =
-        load(deserializer, Unpooled.wrappedBuffer(bytes))
+    override fun <T> load(deserializer: DeserializationStrategy<T>, bytes: ByteArray): T {
+        val tempBuffer = Unpooled.wrappedBuffer(bytes)
+        try {
+            return load(deserializer, tempBuffer)
+        } finally {
+            tempBuffer.release()
+        }
+    }
 
     fun <T> dumpTo(serializer: SerializationStrategy<T>, value: T, byteBufOut: ByteBuf) {
         PacketEncoder(byteBufOut).encode(serializer, value)

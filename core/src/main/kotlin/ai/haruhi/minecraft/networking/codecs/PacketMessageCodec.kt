@@ -11,13 +11,9 @@ import io.netty.handler.codec.CorruptedFrameException
 class PacketMessageCodec : ByteToMessageCodec<ByteBuf>() {
 
     override fun encode(ctx: ChannelHandlerContext, msg: ByteBuf, out: ByteBuf) {
-        try {
-            val packetLength = msg.readableBytes()
-            out.encodeVarInt(packetLength)
-            out.writeBytes(msg, msg.readerIndex(), packetLength)
-        } finally {
-            msg.release()
-        }
+        val packetLength = msg.readableBytes()
+        out.encodeVarInt(packetLength)
+        out.writeBytes(msg, msg.readerIndex(), packetLength)
     }
 
     private val tempPacketLengthData = ByteArray(3)

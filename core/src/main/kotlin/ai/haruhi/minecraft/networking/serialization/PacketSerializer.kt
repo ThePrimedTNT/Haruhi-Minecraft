@@ -1,6 +1,5 @@
 package ai.haruhi.minecraft.networking.serialization
 
-import ai.haruhi.minecraft.networking.handshaking.IncomingHandshakePacket
 import kotlinx.serialization.Decoder
 import kotlinx.serialization.Encoder
 import kotlinx.serialization.KSerializer
@@ -8,27 +7,28 @@ import kotlinx.serialization.SerialDescriptor
 import kotlin.reflect.KClass
 
 interface Packet
+interface IncomingPacket : Packet
+interface OutgoingPacket : Packet
 
 class PacketSerializer(
-    private val mapping: Map<Int, Entry<*>>
+    private val incomingMapping: Map<Int, Entry<out IncomingPacket>> = emptyMap(),
+    private val outgoingMapping: Map<Int, Entry<out OutgoingPacket>> = emptyMap()
 ) : KSerializer<Packet> {
-
-    constructor(vararg mapping: Pair<Int, Entry<*>>) : this(mapping.toMap())
 
     override val descriptor = SerialDescriptor("PacketSerializer")
 
     override fun deserialize(decoder: Decoder): Packet {
         val packetDecoder = decoder as PacketFormat.PacketDecoder
         val packetId = packetDecoder.decodeVarInt()
-        val entry = mapping[packetId] ?: error("No mapping available for packet Id: $packetId")
+        val entry = incomingMapping[packetId] ?: error("No incoming mapping available for packet Id: $packetId")
         return packetDecoder.decodeSerializableValue(entry.serializer)
     }
 
     override fun serialize(encoder: Encoder, value: Packet) {
         val packetEncoder = encoder as PacketFormat.PacketEncoder
         val packetClass = value::class
-        val entry = mapping.entries.find { it.value.packetClass == packetClass }
-            ?: error("No mapping available for packet: ${packetClass::class.simpleName}")
+        val entry = outgoingMapping.entries.find { it.value.packetClass == packetClass }
+            ?: error("No outgoing mapping available for packet: ${packetClass::class.simpleName}")
         packetEncoder.encodeVarInt(entry.key)
         @Suppress("UNCHECKED_CAST")
         packetEncoder.encodeSerializableValue(entry.value.serializer as KSerializer<Packet>, value)
@@ -43,12 +43,6 @@ class PacketSerializer(
         @Suppress("FunctionName")
         inline fun <reified PACKET : Packet> Entry(serializer: KSerializer<PACKET>) =
             Entry(PACKET::class, serializer)
-
-        val HANDSHAKING = PacketSerializer(
-            mapOf(
-                0x0 to Entry(IncomingHandshakePacket.serializer())
-            )
-        )
     }
 }
 
