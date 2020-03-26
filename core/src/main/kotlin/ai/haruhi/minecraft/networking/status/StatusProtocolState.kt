@@ -2,13 +2,16 @@ package ai.haruhi.minecraft.networking.status
 
 import ai.haruhi.minecraft.networking.PacketInboundHandler
 import ai.haruhi.minecraft.networking.ProtocolState
+import ai.haruhi.minecraft.networking.serialization.IncomingPacket
+import ai.haruhi.minecraft.networking.serialization.OutgoingPacket
 import ai.haruhi.minecraft.networking.serialization.Packet
 import ai.haruhi.minecraft.networking.serialization.PacketSerializer
 
 class StatusProtocolState(
     private val packetHandler: PacketInboundHandler
 ) : ProtocolState() {
-    override val packetSerializer = StatusProtocolState.packetSerializer
+    override val incomingPacketSerializer = StatusProtocolState.incomingPacketSerializer
+    override val outgoingPacketSerializer = StatusProtocolState.outgoingPacketSerializer
 
     override fun handlePacket(packet: Packet) {
         when (packet) {
@@ -51,12 +54,14 @@ class StatusProtocolState(
     }
 
     companion object {
-        private val packetSerializer = PacketSerializer(
-            incomingMapping = mapOf(
+        private val incomingPacketSerializer = PacketSerializer<IncomingPacket>(
+            mapOf(
                 0x00 to PacketSerializer.Entry(IncomingRequestPacket.serializer()),
                 0x01 to PacketSerializer.Entry(IncomingPingPacket.serializer())
-            ),
-            outgoingMapping = mapOf(
+            )
+        )
+        private val outgoingPacketSerializer = PacketSerializer<OutgoingPacket>(
+            mapOf(
                 0x00 to PacketSerializer.Entry(OutgoingResponsePacket.serializer()),
                 0x01 to PacketSerializer.Entry(OutgoingPongPacket.serializer())
             )

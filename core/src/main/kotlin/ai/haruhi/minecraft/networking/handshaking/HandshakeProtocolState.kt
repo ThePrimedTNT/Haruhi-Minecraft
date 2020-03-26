@@ -2,6 +2,8 @@ package ai.haruhi.minecraft.networking.handshaking
 
 import ai.haruhi.minecraft.networking.PacketInboundHandler
 import ai.haruhi.minecraft.networking.ProtocolState
+import ai.haruhi.minecraft.networking.serialization.IncomingPacket
+import ai.haruhi.minecraft.networking.serialization.OutgoingPacket
 import ai.haruhi.minecraft.networking.serialization.Packet
 import ai.haruhi.minecraft.networking.serialization.PacketSerializer
 import ai.haruhi.minecraft.networking.status.StatusProtocolState
@@ -9,7 +11,8 @@ import ai.haruhi.minecraft.networking.status.StatusProtocolState
 class HandshakeProtocolState(
     private val packetInboundHandler: PacketInboundHandler
 ) : ProtocolState() {
-    override val packetSerializer = HandshakeProtocolState.packetSerializer
+    override val incomingPacketSerializer = HandshakeProtocolState.incomingPacketSerializer
+    override val outgoingPacketSerializer = HandshakeProtocolState.outgoingPacketSerializer
 
     override fun handlePacket(packet: Packet) {
         when (packet) {
@@ -28,10 +31,11 @@ class HandshakeProtocolState(
     }
 
     companion object {
-        private val packetSerializer = PacketSerializer(
-            incomingMapping = mapOf(
+        private val incomingPacketSerializer = PacketSerializer<IncomingPacket>(
+            mapOf(
                 0x0 to PacketSerializer.Entry(IncomingHandshakePacket.serializer())
             )
         )
+        private val outgoingPacketSerializer = PacketSerializer<OutgoingPacket>()
     }
 }

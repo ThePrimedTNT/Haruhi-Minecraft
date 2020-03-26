@@ -10,9 +10,8 @@ interface Packet
 interface IncomingPacket : Packet
 interface OutgoingPacket : Packet
 
-class PacketSerializer(
-    private val incomingMapping: Map<Int, Entry<out IncomingPacket>> = emptyMap(),
-    private val outgoingMapping: Map<Int, Entry<out OutgoingPacket>> = emptyMap()
+class PacketSerializer<PACKET : Packet>(
+    private val packetMapping: Map<Int, Entry<out PACKET>> = emptyMap()
 ) : KSerializer<Packet> {
 
     override val descriptor = SerialDescriptor("PacketSerializer")
@@ -20,23 +19,23 @@ class PacketSerializer(
     override fun deserialize(decoder: Decoder): Packet {
         val packetDecoder = decoder as PacketFormat.PacketDecoder
         val packetId = packetDecoder.decodeVarInt()
-        val entry = incomingMapping[packetId] ?: error("No incoming mapping available for packet Id: $packetId")
+        val entry = packetMapping[packetId] ?: error("No mapping available for packet Id: $packetId")
         return packetDecoder.decodeSerializableValue(entry.serializer)
     }
 
     override fun serialize(encoder: Encoder, value: Packet) {
         val packetEncoder = encoder as PacketFormat.PacketEncoder
         val packetClass = value::class
-        val entry = outgoingMapping.entries.find { it.value.packetClass == packetClass }
-            ?: error("No outgoing mapping available for packet: ${packetClass::class.simpleName}")
+        val entry = packetMapping.entries.find { it.value.packetClass == packetClass }
+            ?: error("No mapping available for packet: ${packetClass::class.simpleName}")
         packetEncoder.encodeVarInt(entry.key)
         @Suppress("UNCHECKED_CAST")
         packetEncoder.encodeSerializableValue(entry.value.serializer as KSerializer<Packet>, value)
     }
 
-    data class Entry<T : Packet>(
-        val packetClass: KClass<T>,
-        val serializer: KSerializer<T>
+    data class Entry<PACKET : Packet>(
+        val packetClass: KClass<PACKET>,
+        val serializer: KSerializer<PACKET>
     )
 
     companion object {

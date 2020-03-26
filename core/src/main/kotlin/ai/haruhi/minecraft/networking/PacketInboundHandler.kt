@@ -22,7 +22,7 @@ class PacketInboundHandler(
         }
 
         val packet = try {
-            packetFormat.load(protocolState.packetSerializer, msg)
+            packetFormat.load(protocolState.incomingPacketSerializer, msg)
         } finally {
             msg.release()
         }
@@ -34,7 +34,7 @@ class PacketInboundHandler(
     fun sendPacket(packet: OutgoingPacket) {
         println("Sending packet: $packet")
         val packetBuffer = channel.alloc().ioBuffer()
-        packetFormat.dumpTo(protocolState.packetSerializer, packet, packetBuffer)
+        packetFormat.dumpTo(protocolState.outgoingPacketSerializer, packet, packetBuffer)
         channel.writeAndFlush(packetBuffer)
     }
 
