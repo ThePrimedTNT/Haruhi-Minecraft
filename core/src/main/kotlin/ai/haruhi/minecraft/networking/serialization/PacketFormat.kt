@@ -46,7 +46,7 @@ class PacketFormat(
     fun <T> load(deserializer: DeserializationStrategy<T>, bytes: ByteBuf): T =
         PacketDecoder(bytes).decode(deserializer)
 
-    internal open class PacketDecoder(private val inByteBuf: ByteBuf) : AbstractDecoder() {
+    class PacketDecoder(private val inByteBuf: ByteBuf) : AbstractDecoder() {
         private var index: Int = -1
 
         override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
@@ -54,10 +54,17 @@ class PacketFormat(
             return if (index < descriptor.elementsCount) index else READ_DONE
         }
 
+        fun remainingBytes(): Int = inByteBuf.readableBytes()
+
         override fun decodeSequentially(): Boolean = true
 
         override fun decodeBoolean(): Boolean = inByteBuf.readBoolean()
         override fun decodeByte(): Byte = inByteBuf.readByte()
+
+        fun decodeBytes(size: Int): ByteArray = ByteArray(size).also {
+            inByteBuf.readBytes(it)
+        }
+
         override fun decodeShort(): Short = inByteBuf.readShort()
         override fun decodeInt(): Int = inByteBuf.readInt()
         override fun decodeLong(): Long = inByteBuf.readLong()
@@ -70,7 +77,7 @@ class PacketFormat(
         fun decodeVarLong(): Long = inByteBuf.decodeVarLong()
     }
 
-    internal open class PacketEncoder(private val outByteBuf: ByteBuf) : AbstractEncoder() {
+    class PacketEncoder(private val outByteBuf: ByteBuf) : AbstractEncoder() {
 
         override fun encodeBoolean(value: Boolean) {
             outByteBuf.writeBoolean(value)
@@ -78,6 +85,10 @@ class PacketFormat(
 
         override fun encodeByte(value: Byte) {
             outByteBuf.writeByte(value.toInt())
+        }
+
+        fun encodeBytes(value: ByteArray) {
+            outByteBuf.writeBytes(value)
         }
 
         override fun encodeShort(value: Short) {
@@ -168,8 +179,8 @@ fun ByteBuf.decodeVarLong(): Long {
         val value = (readByte.toInt() and 0b01111111).toLong()
         result = result or (value shl (7 * numRead))
         numRead++
-        if(numRead > 10) error("VarLong is too big")
-    } while((readByte.toInt() and 0b10000000) != 0)
+        if (numRead > 10) error("VarLong is too big")
+    } while ((readByte.toInt() and 0b10000000) != 0)
     return result
 }
 
