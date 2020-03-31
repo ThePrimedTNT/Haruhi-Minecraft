@@ -1,6 +1,7 @@
 package ai.haruhi.minecraft
 
 import ai.haruhi.minecraft.networking.NettyChannelInitializer
+import ai.haruhi.minecraft.networking.ProtocolVersion
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.ServerChannel
@@ -14,8 +15,10 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 
 class HaruhiMinecraft(
-    private val port: Int
+    val port: Int
 ) {
+
+    val version = ProtocolVersion.v1_15_2_578
 
     private val serverBootstrap = ServerBootstrap().apply {
         val parentGroup: EventLoopGroup
