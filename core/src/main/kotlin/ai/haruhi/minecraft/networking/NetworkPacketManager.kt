@@ -1,31 +1,26 @@
 package ai.haruhi.minecraft.networking
 
 import ai.haruhi.minecraft.networking.handshaking.HandshakeProtocolState
+import ai.haruhi.minecraft.networking.serialization.IncomingPacket
 import ai.haruhi.minecraft.networking.serialization.OutgoingPacket
 import ai.haruhi.minecraft.networking.serialization.PacketFormat
 import io.netty.buffer.ByteBuf
 import io.netty.channel.Channel
 import io.netty.channel.ChannelHandlerContext
-import io.netty.channel.ChannelInboundHandlerAdapter
+import io.netty.channel.SimpleChannelInboundHandler
+import kotlinx.coroutines.channels.BroadcastChannel
 
-class PacketInboundHandler(
+class NetworkPacketManager(
+    val eventBus: BroadcastChannel<NetworkEvent>,
     private val channel: Channel
-) : ChannelInboundHandlerAdapter() {
+) : SimpleChannelInboundHandler<ByteBuf>() {
 
     var protocolState: ProtocolState = HandshakeProtocolState(this)
 
-    override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
-        if (msg !is ByteBuf) error("Got random message: $msg")
-        if (msg.readableBytes() == 0) {
-            msg.release()
-            error("Got empty packet")
-        }
+    override fun channelRead0(ctx: ChannelHandlerContext, msg: ByteBuf) {
+        if (msg.readableBytes() == 0) error("Got empty packet")
 
-        val packet = try {
-            packetFormat.load(protocolState.incomingPacketSerializer, msg)
-        } finally {
-            msg.release()
-        }
+        val packet = packetFormat.load(protocolState.incomingPacketSerializer, msg) as IncomingPacket
 
         println("Got packet: $packet")
         protocolState.handlePacket(packet)
@@ -40,6 +35,6 @@ class PacketInboundHandler(
 
     companion object {
         private val packetFormat = PacketFormat()
-        const val PIPELINE_NAME = "protocol-handler"
+        const val PIPELINE_NAME = "package-manager"
     }
 }

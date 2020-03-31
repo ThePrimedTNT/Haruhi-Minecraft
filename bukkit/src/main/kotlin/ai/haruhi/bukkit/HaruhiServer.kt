@@ -52,6 +52,12 @@ import java.util.UUID
 import java.util.function.Consumer
 import java.util.logging.Logger
 
+fun main(args: Array<String>) {
+    HaruhiServer(
+        VanillaMinecraft.createServer(args)
+    )
+}
+
 class HaruhiServer(
     private val minecraftServer: VanillaMinecraft
 ) : Server {
@@ -232,8 +238,7 @@ class HaruhiServer(
     override fun <T : Keyed?> getTags(registry: String, clazz: Class<T>): MutableIterable<Tag<T>> =
         TODO("Not yet implemented")
 
-    override fun getBukkitVersion(): String =
-        TODO("Not yet implemented")
+    override fun getBukkitVersion(): String = "1.15.2" // TODO
 
     override fun getWorldType(): String =
         TODO("Not yet implemented")
@@ -337,8 +342,7 @@ class HaruhiServer(
     ): KeyedBossBar =
         TODO("Not yet implemented")
 
-    override fun getName(): String =
-        TODO("Not yet implemented")
+    override fun getName(): String = "CraftBukkit"
 
     override fun removeRecipe(key: NamespacedKey): Boolean =
         TODO("Not yet implemented")
@@ -432,8 +436,7 @@ class HaruhiServer(
 
     override fun getLogger(): Logger = HaruhiServer.logger
 
-    override fun getVersion(): String =
-        TODO("Not yet implemented")
+    override fun getVersion(): String = "(MC: ${minecraftServer.version.mcVersion})" // TODO
 
     companion object {
         private val logger = Logger.getLogger("Minecraft")

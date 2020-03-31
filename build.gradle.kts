@@ -22,6 +22,7 @@ allprojects {
     dependencies {
         implementation(kotlin("stdlib-jdk8"))
         implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-runtime", version = "0.20.0")
+        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = "1.3.5")
 
         testImplementation(group = "junit", name = "junit", version = "4.12")
     }

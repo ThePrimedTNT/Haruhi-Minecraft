@@ -22,7 +22,7 @@ import java.util.Properties
 class JavaPropertiesFormat(override val context: SerialModule = EmptyModule) : SerialFormat {
 
     fun <T> load(deserializer: DeserializationStrategy<T>, file: File): T =
-        file.reader().use { reader -> load(deserializer, reader) }
+        file.reader(PROPERTIES_CHARSET).use { reader -> load(deserializer, reader) }
 
     fun <T> load(deserializer: DeserializationStrategy<T>, reader: Reader): T =
         load(deserializer, Properties().apply { load(reader) })
@@ -34,7 +34,7 @@ class JavaPropertiesFormat(override val context: SerialModule = EmptyModule) : S
         JavaPropertiesDecoder(properties).decode(deserializer)
 
     fun <T> dumpTo(serializer: SerializationStrategy<T>, value: T, file: File, comments: String = "") {
-        file.writer().use { writer -> dumpTo(serializer, value, writer, comments) }
+        file.writer(PROPERTIES_CHARSET).use { writer -> dumpTo(serializer, value, writer, comments) }
     }
 
     fun <T> dumpTo(serializer: SerializationStrategy<T>, value: T, writer: Writer, comments: String = "") {
@@ -90,5 +90,9 @@ class JavaPropertiesFormat(override val context: SerialModule = EmptyModule) : S
         override fun encodeTaggedValue(tag: String, value: Any) {
             properties[tag] = value.toString()
         }
+    }
+
+    companion object {
+        val PROPERTIES_CHARSET = Charsets.ISO_8859_1
     }
 }

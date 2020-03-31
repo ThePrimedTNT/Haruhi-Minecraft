@@ -1,6 +1,7 @@
 package ai.haruhi.minecraft
 
 import ai.haruhi.minecraft.networking.NettyChannelInitializer
+import ai.haruhi.minecraft.networking.NetworkEvent
 import ai.haruhi.minecraft.networking.ProtocolVersion
 import io.netty.bootstrap.ServerBootstrap
 import io.netty.channel.EventLoopGroup
@@ -13,43 +14,50 @@ import io.netty.channel.kqueue.KQueueEventLoopGroup
 import io.netty.channel.kqueue.KQueueServerSocketChannel
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.channels.BroadcastChannel
+import kotlin.coroutines.CoroutineContext
 
 class HaruhiMinecraft(
     val port: Int
-) {
+) : CoroutineScope {
 
     val version = ProtocolVersion.v1_15_2_578
 
-    private val serverBootstrap = ServerBootstrap().apply {
-        val parentGroup: EventLoopGroup
-        val childGroup: EventLoopGroup
+    private val serverBootstrap = ServerBootstrap()
+    override val coroutineContext: CoroutineContext
+    val eventBus = BroadcastChannel<NetworkEvent>(capacity = 5)
+
+    init {
+        val eventLoopGroup: EventLoopGroup
         val channelClass: Class<out ServerChannel>
 
         when {
             // MacOS/BSD native transport
             KQueue.isAvailable() -> {
-                parentGroup = KQueueEventLoopGroup()
-                childGroup = KQueueEventLoopGroup()
+                eventLoopGroup = KQueueEventLoopGroup()
                 channelClass = KQueueServerSocketChannel::class.java
             }
             // Linux native transport
             Epoll.isAvailable() -> {
-                parentGroup = EpollEventLoopGroup()
-                childGroup = EpollEventLoopGroup()
+                eventLoopGroup = EpollEventLoopGroup()
                 channelClass = EpollServerSocketChannel::class.java
             }
             // Generic
             else -> {
-                parentGroup = NioEventLoopGroup()
-                childGroup = NioEventLoopGroup()
+                eventLoopGroup = NioEventLoopGroup()
                 channelClass = NioServerSocketChannel::class.java
             }
         }
 
-        group(parentGroup, childGroup)
-        channel(channelClass)
+        coroutineContext = eventLoopGroup.asCoroutineDispatcher() + Job()
 
-        childHandler(NettyChannelInitializer())
+        serverBootstrap
+            .group(eventLoopGroup, eventLoopGroup)
+            .channel(channelClass)
+            .childHandler(NettyChannelInitializer(eventBus))
     }
 
     fun start() {
