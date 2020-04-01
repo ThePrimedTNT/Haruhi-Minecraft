@@ -1,9 +1,11 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
+    // Cannot move to settings.gradle.kts, will break the project immediately.
+    val kotlin_version = System.getProperty("kotlin_version")
     java
-    kotlin("jvm") version "1.3.71"
-    kotlin("plugin.serialization") version "1.3.71"
+    kotlin("jvm") version kotlin_version
+    kotlin("plugin.serialization") version kotlin_version
 }
 
 allprojects {
@@ -21,10 +23,10 @@ allprojects {
 
     dependencies {
         implementation(kotlin("stdlib-jdk8"))
-        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-runtime", version = "0.20.0")
-        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = "1.3.5")
+        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-runtime", version = properties["kotlinx_serialization_version"].toString())
+        implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = properties["kotlinx_coroutines_version"].toString())
 
-        testImplementation(group = "junit", name = "junit", version = "4.12")
+        testImplementation(group = "junit", name = "junit", version = properties["junit_version"].toString())
     }
 
     configure<JavaPluginConvention> {

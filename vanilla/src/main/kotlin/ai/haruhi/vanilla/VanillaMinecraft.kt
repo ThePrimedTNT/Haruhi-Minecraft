@@ -5,6 +5,7 @@ import ai.haruhi.minecraft.networking.NetworkEvent
 import ai.haruhi.minecraft.networking.ProtocolVersion
 import ai.haruhi.minecraft.networking.status.IncomingRequestPacket
 import ai.haruhi.minecraft.networking.status.OutgoingResponsePacket
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 import java.io.File
@@ -17,7 +18,7 @@ class VanillaMinecraft(private val settings: Settings) {
 
     val server = HaruhiMinecraft(settings.serverPort)
 
-    val version = ProtocolVersion.v1_15_2_578
+    val version = ProtocolVersion.v1_15_2
 
     init {
         server.start()
