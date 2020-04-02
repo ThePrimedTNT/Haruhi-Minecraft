@@ -2,6 +2,7 @@ package ai.haruhi.nbt
 
 import kotlinx.serialization.Serializable
 
+@Serializable(with = NBTElementSerializer::class)
 interface NBTElement
 
 @Serializable(with = NBTByteSerializer::class)

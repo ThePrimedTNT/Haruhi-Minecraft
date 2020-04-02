@@ -9,10 +9,12 @@ import kotlinx.serialization.PrimitiveKind
 import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.Serializer
 import kotlinx.serialization.StructureKind
+import kotlinx.serialization.builtins.ByteArraySerializer
+import kotlinx.serialization.builtins.IntArraySerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.LongArraySerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.mapDescriptor
 
 internal const val TAG_END: Byte = 0
 internal const val TAG_BYTE: Byte = 1
@@ -28,6 +30,7 @@ internal const val TAG_COMPOUND: Byte = 10
 internal const val TAG_INT_ARRAY: Byte = 11
 internal const val TAG_LONG_ARRAY: Byte = 12
 
+@Serializer(forClass = NBTElement::class)
 object NBTElementSerializer : KSerializer<NBTElement> {
     override val descriptor: SerialDescriptor =
         SerialDescriptor("ai.haruhi.nbt.NBTElement", PolymorphicKind.SEALED) {
@@ -127,7 +130,7 @@ object NBTFloatSerializer : KSerializer<NBTFloat> {
 @Serializer(forClass = NBTDouble::class)
 object NBTDoubleSerializer : KSerializer<NBTDouble> {
     override val descriptor: SerialDescriptor =
-        PrimitiveDescriptor("ai.haruhi.nbt.NBTDouble", PrimitiveKind.FLOAT)
+        PrimitiveDescriptor("ai.haruhi.nbt.NBTDouble", PrimitiveKind.DOUBLE)
 
     override fun deserialize(decoder: Decoder): NBTDouble =
         NBTDouble(decoder.decodeDouble())
@@ -142,13 +145,13 @@ object NBTByteArraySerializer : KSerializer<NBTByteArray> {
     override val descriptor: SerialDescriptor =
         SerialDescriptor("ai.haruhi.nbt.NBTByteArray", StructureKind.LIST)
 
+    private val serializer = ByteArraySerializer()
+
     override fun deserialize(decoder: Decoder): NBTByteArray =
-        NBTByteArray(ByteArray(decoder.decodeInt()) { decoder.decodeByte() })
+        NBTByteArray(serializer.deserialize(decoder))
 
     override fun serialize(encoder: Encoder, value: NBTByteArray) {
-        val byteArray = value.value
-        encoder.encodeInt(byteArray.size)
-        byteArray.forEach { encoder.encodeByte(it) }
+        serializer.serialize(encoder, value.value)
     }
 }
 
@@ -170,32 +173,29 @@ object NBTListSerializer : KSerializer<NBTList<NBTElement>> {
     override val descriptor: SerialDescriptor =
         SerialDescriptor("ai.haruhi.nbt.NBTList", StructureKind.LIST)
 
+    private val serializer = ListSerializer(NBTElementSerializer)
+
     override fun deserialize(decoder: Decoder): NBTList<NBTElement> =
-        NBTList(ListSerializer(NBTElementSerializer).deserialize(decoder))
+        NBTList(serializer.deserialize(decoder))
 
     override fun serialize(encoder: Encoder, value: NBTList<NBTElement>) {
-        ListSerializer(NBTElementSerializer).serialize(encoder, value.value)
+        serializer.serialize(encoder, value.value)
     }
 }
 
 @Serializer(forClass = NBTCompound::class)
 object NBTCompoundSerializer : KSerializer<NBTCompound> {
     override val descriptor: SerialDescriptor =
-        SerialDescriptor("ai.haruhi.nbt.NBTCompound", kind = StructureKind.MAP) {
-            mapDescriptor(
-                String.serializer().descriptor,
-                NBTElementSerializer.descriptor
-            )
-        }
+        SerialDescriptor("ai.haruhi.nbt.NBTCompound", kind = StructureKind.MAP)
+
+    private val serializer = MapSerializer(String.serializer(), NBTElementSerializer)
 
     override fun deserialize(decoder: Decoder): NBTCompound {
-        return NBTCompound(
-            MapSerializer(String.serializer(), NBTElementSerializer).deserialize(decoder)
-        )
+        return NBTCompound(serializer.deserialize(decoder))
     }
 
     override fun serialize(encoder: Encoder, value: NBTCompound) {
-        MapSerializer(String.serializer(), NBTElementSerializer).serialize(encoder, value.value)
+        serializer.serialize(encoder, value.value)
     }
 }
 
@@ -204,13 +204,13 @@ object NBTIntArraySerializer : KSerializer<NBTIntArray> {
     override val descriptor: SerialDescriptor =
         SerialDescriptor("ai.haruhi.nbt.NBTIntArray", StructureKind.LIST)
 
+    private val serializer = IntArraySerializer()
+
     override fun deserialize(decoder: Decoder): NBTIntArray =
-        NBTIntArray(IntArray(decoder.decodeInt()) { decoder.decodeInt() })
+        NBTIntArray(serializer.deserialize(decoder))
 
     override fun serialize(encoder: Encoder, value: NBTIntArray) {
-        val byteArray = value.value
-        encoder.encodeInt(byteArray.size)
-        byteArray.forEach { encoder.encodeInt(it) }
+        serializer.serialize(encoder, value.value)
     }
 }
 
@@ -219,12 +219,12 @@ object NBTLongArraySerializer : KSerializer<NBTLongArray> {
     override val descriptor: SerialDescriptor =
         SerialDescriptor("ai.haruhi.nbt.NBTLongArray", StructureKind.LIST)
 
+    private val serializer = LongArraySerializer()
+
     override fun deserialize(decoder: Decoder): NBTLongArray =
-        NBTLongArray(LongArray(decoder.decodeInt()) { decoder.decodeLong() })
+        NBTLongArray(serializer.deserialize(decoder))
 
     override fun serialize(encoder: Encoder, value: NBTLongArray) {
-        val byteArray = value.value
-        encoder.encodeInt(byteArray.size)
-        byteArray.forEach { encoder.encodeLong(it) }
+        serializer.serialize(encoder, value.value)
     }
 }
