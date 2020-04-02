@@ -30,8 +30,8 @@ internal class NBTTopLevelEncoder(
         vararg typeSerializers: KSerializer<*>
     ): CompositeEncoder =
         when (val kind = descriptor.kind) {
-            StructureKind.MAP -> NBTCompoundEncoder(this, false)
-            StructureKind.CLASS -> NBTCompoundEncoder(this, true)
+            StructureKind.MAP -> NBTCompoundEncoder(this)
+            StructureKind.CLASS -> NBTCompoundClassEncoder(this)
             else -> error("Unsupported kind: $kind")
         }
 
@@ -196,13 +196,12 @@ internal class NBTArrayEncoder(
 }
 
 internal class NBTCompoundEncoder(
-    topLevelEncoder: NBTTopLevelEncoder,
-    private val isClass: Boolean
+    topLevelEncoder: NBTTopLevelEncoder
 ) : AbstractNBTCompositeEncoder(topLevelEncoder) {
     private lateinit var key: String
 
     override fun encodeStringElement(descriptor: SerialDescriptor, index: Int, value: String) {
-        if (!isClass && index.rem(2) == 0) {
+        if (index.rem(2) == 0) {
             key = value
         } else {
             super.encodeStringElement(descriptor, index, value)
@@ -215,11 +214,42 @@ internal class NBTCompoundEncoder(
         serializer: SerializationStrategy<T>,
         value: T
     ) {
-        if (!isClass && value is String) {
+        if (value is String) {
             encodeStringElement(descriptor, index, value)
             return
         }
 
+        super.encodeSerializableElement(descriptor, index, serializer, value)
+    }
+
+    override fun <T> encodeValue(
+        descriptor: SerialDescriptor,
+        index: Int,
+        tagType: Byte,
+        value: T,
+        encodeFunction: (T) -> Unit
+    ) {
+        require(index.rem(2) == 1) { "Compound map key must be a String" }
+        topLevelEncoder.encodeByte(tagType)
+        topLevelEncoder.encodeString(key)
+        encodeFunction(value)
+    }
+
+    override fun endStructure(descriptor: SerialDescriptor) {
+        topLevelEncoder.encodeByte(TAG_END)
+    }
+}
+
+internal class NBTCompoundClassEncoder(
+    topLevelEncoder: NBTTopLevelEncoder
+) : AbstractNBTCompositeEncoder(topLevelEncoder) {
+
+    override fun <T> encodeSerializableElement(
+        descriptor: SerialDescriptor,
+        index: Int,
+        serializer: SerializationStrategy<T>,
+        value: T
+    ) {
         // Try to resolve type based on explicit annotation, else base it off last type
         val nbtTagListAnnotation = descriptor.getElementAnnotations(index)
             .find { it is NBTListTag } as? NBTListTag
@@ -275,14 +305,8 @@ internal class NBTCompoundEncoder(
         value: T,
         encodeFunction: (T) -> Unit
     ) {
-        if (isClass) {
-            topLevelEncoder.encodeByte(tagType)
-            topLevelEncoder.encodeString(descriptor.getElementName(index))
-        } else {
-            require(index.rem(2) == 1) { "Compound map key must be a String" }
-            topLevelEncoder.encodeByte(tagType)
-            topLevelEncoder.encodeString(key)
-        }
+        topLevelEncoder.encodeByte(tagType)
+        topLevelEncoder.encodeString(descriptor.getElementName(index))
         encodeFunction(value)
     }
 

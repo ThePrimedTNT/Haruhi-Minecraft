@@ -53,15 +53,11 @@ class MainTest {
     @Test
     fun testEncoding() {
         val testNBT = NBTCompound(
-            mapOf(
-                "string" to NBTString("hi"),
-                "MapTest" to NBTCompound(
-                    mapOf(
-                        "byte" to NBTByte(52),
-                        "byteArray" to NBTByteArray(byteArrayOf(25, 54)),
-                        "byteList" to NBTList(listOf(NBTByte(51), NBTByte(90)))
-                    )
-                )
+            "string" to NBTString("hi"),
+            "MapTest" to NBTCompound(
+                "byte" to NBTByte(52),
+                "byteArray" to NBTByteArray(byteArrayOf(25, 54)),
+                "byteList" to NBTList(listOf(NBTByte(51), NBTByte(90)))
             )
         )
 
@@ -104,7 +100,27 @@ class MainTest {
             )
         )
 
-        val decodedNBT = nbtFormat.load(NBTCompoundSerializer, encodedClass)
+        val decodedNBT = nbtFormat.load(TestEncodingClass.serializer(), encodedClass)
+
+        println(decodedNBT)
+    }
+
+    @Test
+    fun testClassDecodingFromMismatchedNBT() {
+        val classAsNBT = NBTCompound(
+            "one" to NBTString("This is"),
+            "two" to NBTString("A test"),
+            "three" to NBTCompound(
+                "normalByteArray" to NBTByteArray(byteArrayOf(34, 65, 23, 54)),
+                "byteArray" to NBTList(listOf(NBTByte(43), NBTByte(65), NBTByte(23))),
+                "normalByteList" to NBTList(listOf(NBTByte(34), NBTByte(87), NBTByte(34))),
+                "byteList" to NBTByteArray(byteArrayOf(34, 65, 23, 54))
+            )
+        )
+
+        val encodedNBT = nbtFormat.dump(NBTCompoundSerializer, classAsNBT)
+
+        val decodedNBT = nbtFormat.load(TestEncodingClass.serializer(), encodedNBT)
 
         println(decodedNBT)
     }

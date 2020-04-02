@@ -52,6 +52,9 @@ class NBTList<T : NBTElement>(val value: List<T>) : NBTElement {
 
 @Serializable(with = NBTCompoundSerializer::class)
 class NBTCompound(val value: Map<String, NBTElement>) : NBTElement {
+
+    constructor(vararg values: Pair<String, NBTElement>) : this(values.toMap())
+
     override fun toString(): String =
         buildString {
             append("NBTCompound{\n")
