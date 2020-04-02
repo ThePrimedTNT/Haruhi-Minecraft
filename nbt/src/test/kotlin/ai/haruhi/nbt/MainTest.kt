@@ -73,4 +73,39 @@ class MainTest {
 
         println(decodedResult)
     }
+
+    @Serializable
+    data class TestEncodingClass(
+        val one: String,
+        val two: String,
+        val three: NestedEncodingClass
+    ) {
+        @Serializable
+        data class NestedEncodingClass(
+            val normalByteArray: ByteArray,
+            @NBTListTag(NBTListType.LIST) val byteArray: ByteArray,
+            val normalByteList: List<Byte>,
+            @NBTListTag(NBTListType.ARRAY) val byteList: List<Byte>
+        )
+    }
+
+    @Test
+    fun testClassEncoding() {
+        val encodedClass = nbtFormat.dump(
+            TestEncodingClass.serializer(), TestEncodingClass(
+                one = "This is",
+                two = "A test",
+                three = TestEncodingClass.NestedEncodingClass(
+                    normalByteArray = byteArrayOf(25, 93, 23),
+                    byteArray = byteArrayOf(52, 23, 94, 34),
+                    normalByteList = listOf(94, 83, 23, 84),
+                    byteList = listOf(53, 54, 76, -3)
+                )
+            )
+        )
+
+        val decodedNBT = nbtFormat.load(NBTCompoundSerializer, encodedClass)
+
+        println(decodedNBT)
+    }
 }

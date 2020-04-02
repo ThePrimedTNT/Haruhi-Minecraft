@@ -7,6 +7,7 @@ import kotlinx.serialization.PolymorphicKind
 import kotlinx.serialization.PrimitiveDescriptor
 import kotlinx.serialization.PrimitiveKind
 import kotlinx.serialization.SerialDescriptor
+import kotlinx.serialization.SerialInfo
 import kotlinx.serialization.Serializer
 import kotlinx.serialization.StructureKind
 import kotlinx.serialization.builtins.ByteArraySerializer
@@ -55,6 +56,16 @@ internal enum class CodecMode {
     CLASS
 }
 
+@SerialInfo
+@Target(AnnotationTarget.PROPERTY)
+annotation class NBTListTag(val type: NBTListType = NBTListType.AUTO)
+
+enum class NBTListType {
+    AUTO,
+    ARRAY,
+    LIST
+}
+
 @Serializer(forClass = NBTElement::class)
 object NBTElementSerializer : KSerializer<NBTElement> {
     override val descriptor: SerialDescriptor =
@@ -97,6 +108,11 @@ object NBTElementSerializer : KSerializer<NBTElement> {
             is NBTLongArray -> encoder.encodeSerializableValue(NBTLongArraySerializer, value)
             else -> error("Unsupported NBTElement: ${value::class.simpleName}")
         }
+    }
+
+    override fun patch(decoder: Decoder, old: NBTElement): NBTElement {
+        // TODO figure this out
+        return deserialize(decoder)
     }
 }
 
