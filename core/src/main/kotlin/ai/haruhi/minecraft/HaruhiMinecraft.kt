@@ -24,7 +24,7 @@ class HaruhiMinecraft(
     val port: Int
 ) : CoroutineScope {
 
-    val version = ProtocolVersion.v1_15_2_578
+    val version = ProtocolVersion.v1_15_2
 
     private val serverBootstrap = ServerBootstrap()
     override val coroutineContext: CoroutineContext

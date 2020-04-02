@@ -4,5 +4,5 @@ include(
     "core",
     "vanilla",
     "bukkit",
-    "demo"
+    "nbt"
 )
