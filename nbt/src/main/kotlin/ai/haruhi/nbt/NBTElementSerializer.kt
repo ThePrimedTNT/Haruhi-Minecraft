@@ -15,6 +15,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.LongArraySerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.modules.SerializersModule
+import kotlinx.serialization.modules.contextual
 
 internal const val TAG_END: Byte = 0
 internal const val TAG_BYTE: Byte = 1
@@ -29,6 +31,29 @@ internal const val TAG_LIST: Byte = 9
 internal const val TAG_COMPOUND: Byte = 10
 internal const val TAG_INT_ARRAY: Byte = 11
 internal const val TAG_LONG_ARRAY: Byte = 12
+
+val defaultNBTFormatModule = SerializersModule {
+    contextual(NBTByteSerializer)
+    contextual(NBTShortSerializer)
+    contextual(NBTIntSerializer)
+    contextual(NBTLongSerializer)
+    contextual(NBTFloatSerializer)
+    contextual(NBTDoubleSerializer)
+    contextual(NBTByteArraySerializer)
+    contextual(NBTStringSerializer)
+    contextual(NBTListSerializer)
+    contextual(NBTCompoundSerializer)
+    contextual(NBTIntArraySerializer)
+    contextual(NBTLongArraySerializer)
+}
+
+internal enum class CodecMode {
+    TOP_LEVEL,
+    MAP,
+    LIST,
+    ARRAY,
+    CLASS
+}
 
 @Serializer(forClass = NBTElement::class)
 object NBTElementSerializer : KSerializer<NBTElement> {
@@ -58,6 +83,19 @@ object NBTElementSerializer : KSerializer<NBTElement> {
     override fun serialize(encoder: Encoder, value: NBTElement) {
         when (value) {
             is NBTByte -> encoder.encodeSerializableValue(NBTByteSerializer, value)
+            is NBTShort -> encoder.encodeSerializableValue(NBTShortSerializer, value)
+            is NBTInt -> encoder.encodeSerializableValue(NBTIntSerializer, value)
+            is NBTLong -> encoder.encodeSerializableValue(NBTLongSerializer, value)
+            is NBTFloat -> encoder.encodeSerializableValue(NBTFloatSerializer, value)
+            is NBTDouble -> encoder.encodeSerializableValue(NBTDoubleSerializer, value)
+            is NBTByteArray -> encoder.encodeSerializableValue(NBTByteArraySerializer, value)
+            is NBTString -> encoder.encodeSerializableValue(NBTStringSerializer, value)
+            is NBTList<*> -> @Suppress("UNCHECKED_CAST")
+            encoder.encodeSerializableValue(NBTListSerializer, value as NBTList<NBTElement>)
+            is NBTCompound -> encoder.encodeSerializableValue(NBTCompoundSerializer, value)
+            is NBTIntArray -> encoder.encodeSerializableValue(NBTIntArraySerializer, value)
+            is NBTLongArray -> encoder.encodeSerializableValue(NBTLongArraySerializer, value)
+            else -> error("Unsupported NBTElement: ${value::class.simpleName}")
         }
     }
 }

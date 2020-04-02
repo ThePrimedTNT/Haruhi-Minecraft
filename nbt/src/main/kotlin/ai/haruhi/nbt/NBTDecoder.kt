@@ -4,27 +4,16 @@ import kotlinx.serialization.CompositeDecoder
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.StructureKind
-import kotlinx.serialization.UpdateMode
 import kotlinx.serialization.builtins.AbstractDecoder
 import kotlinx.serialization.modules.SerialModule
 import java.io.IOException
 import java.io.InputStream
 
-enum class DecoderMode {
-    TOP_LEVEL,
-    MAP,
-    LIST,
-    ARRAY,
-    CLASS
-}
-
 internal class NBTDecoder(
     private val inputStream: InputStream,
-    private val decoderMode: DecoderMode,
+    private val decoderMode: CodecMode,
     override val context: SerialModule
 ) : AbstractDecoder() {
-    override val updateMode: UpdateMode = UpdateMode.UPDATE
-
     private var currentIndex = -1
 
     var tagType: Byte = -1
@@ -35,18 +24,18 @@ internal class NBTDecoder(
     init {
         @Suppress("NON_EXHAUSTIVE_WHEN")
         when (decoderMode) {
-            DecoderMode.TOP_LEVEL -> {
+            CodecMode.TOP_LEVEL -> {
                 tagType = decodeByte()
                 if (tagType != TAG_END) {
                     // Ignore tag name
                     decodeString()
                 }
             }
-            DecoderMode.LIST -> {
+            CodecMode.LIST -> {
                 tagType = decodeByte()
                 collectionSize = decodeInt()
             }
-            DecoderMode.ARRAY -> {
+            CodecMode.ARRAY -> {
                 collectionSize = decodeInt()
             }
         }
@@ -54,22 +43,22 @@ internal class NBTDecoder(
 
     override fun beginStructure(descriptor: SerialDescriptor, vararg typeParams: KSerializer<*>): CompositeDecoder =
         when (val kind = descriptor.kind) {
-            StructureKind.MAP -> NBTDecoder(inputStream, DecoderMode.MAP, context)
+            StructureKind.MAP -> NBTDecoder(inputStream, CodecMode.MAP, context)
             StructureKind.LIST -> {
                 val decoderMode = when (tagType) {
-                    TAG_BYTE_ARRAY, TAG_INT_ARRAY, TAG_LONG_ARRAY -> DecoderMode.ARRAY
-                    TAG_LIST -> DecoderMode.LIST
+                    TAG_BYTE_ARRAY, TAG_INT_ARRAY, TAG_LONG_ARRAY -> CodecMode.ARRAY
+                    TAG_LIST -> CodecMode.LIST
                     else -> error("Invalid tag type for list: $tagType")
                 }
                 NBTDecoder(inputStream, decoderMode, context)
             }
-            StructureKind.CLASS -> NBTDecoder(inputStream, DecoderMode.CLASS, context)
+            StructureKind.CLASS -> NBTDecoder(inputStream, CodecMode.CLASS, context)
             else -> error("Unsupported kind: $kind")
         }
 
     override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
         when (decoderMode) {
-            DecoderMode.MAP -> {
+            CodecMode.MAP -> {
                 // Maps use even indexes as key and odd as value
                 currentIndex++
                 if (currentIndex.rem(2) == 0) {
@@ -79,7 +68,7 @@ internal class NBTDecoder(
                     }
                 }
             }
-            DecoderMode.CLASS -> {
+            CodecMode.CLASS -> {
                 tagType = decodeByte()
                 if (tagType == TAG_END) {
                     return CompositeDecoder.READ_DONE
@@ -87,14 +76,14 @@ internal class NBTDecoder(
                     currentIndex = descriptor.getElementIndex(decodeString())
                 }
             }
-            DecoderMode.LIST, DecoderMode.ARRAY -> currentIndex++
+            CodecMode.LIST, CodecMode.ARRAY -> currentIndex++
             else -> error("Cannot get element index in mode: $decoderMode")
         }
         return currentIndex
     }
 
     // We can decode sequentially because in lists the size is saved up front
-    override fun decodeSequentially(): Boolean = decoderMode == DecoderMode.LIST || decoderMode == DecoderMode.ARRAY
+    override fun decodeSequentially(): Boolean = decoderMode == CodecMode.LIST || decoderMode == CodecMode.ARRAY
     override fun decodeCollectionSize(descriptor: SerialDescriptor): Int = collectionSize
 
     override fun decodeByte(): Byte {
@@ -108,7 +97,7 @@ internal class NBTDecoder(
     override fun decodeInt(): Int = combineInt(inputStream.readNBytes(4))
     override fun decodeLong(): Long = combine(inputStream.readNBytes(8), 8)
     override fun decodeShort(): Short = combine(inputStream.readNBytes(2), 2).toShort()
-    override fun decodeString(): String = String(inputStream.readNBytes(decodeShort().toInt()))
+    override fun decodeString(): String = String(inputStream.readNBytes(decodeShort().toInt()), Charsets.UTF_8)
 
     override fun decodeEnum(enumDescriptor: SerialDescriptor): Int = error("not implemented")
 

@@ -49,4 +49,28 @@ class MainTest {
 
         println(nbt)
     }
+
+    @Test
+    fun testEncoding() {
+        val testNBT = NBTCompound(
+            mapOf(
+                "string" to NBTString("hi"),
+                "MapTest" to NBTCompound(
+                    mapOf(
+                        "byte" to NBTByte(52),
+                        "byteArray" to NBTByteArray(byteArrayOf(25, 54)),
+                        "byteList" to NBTList(listOf(NBTByte(51), NBTByte(90)))
+                    )
+                )
+            )
+        )
+
+        val encodedResult = nbtFormat.dump(NBTCompoundSerializer, testNBT)
+
+        println(String(encodedResult))
+
+        val decodedResult = nbtFormat.load(NBTCompoundSerializer, encodedResult)
+
+        println(decodedResult)
+    }
 }
