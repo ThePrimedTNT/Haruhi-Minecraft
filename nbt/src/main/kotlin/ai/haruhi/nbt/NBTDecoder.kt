@@ -1,90 +1,44 @@
 package ai.haruhi.nbt
 
 import kotlinx.serialization.CompositeDecoder
+import kotlinx.serialization.Decoder
+import kotlinx.serialization.DeserializationStrategy
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialDescriptor
 import kotlinx.serialization.StructureKind
-import kotlinx.serialization.builtins.AbstractDecoder
+import kotlinx.serialization.UpdateMode
 import kotlinx.serialization.modules.SerialModule
 import java.io.IOException
 import java.io.InputStream
 
-internal class NBTDecoder(
+internal class NBTTopLevelDecoder(
     private val inputStream: InputStream,
-    private val decoderMode: CodecMode,
     override val context: SerialModule
-) : AbstractDecoder() {
-    private var currentIndex = -1
+) : Decoder {
+    override val updateMode = UpdateMode.UPDATE
 
-    var tagType: Byte = -1
+    var tagType: Byte
         private set
 
-    private var collectionSize = -1
-
     init {
-        @Suppress("NON_EXHAUSTIVE_WHEN")
-        when (decoderMode) {
-            CodecMode.TOP_LEVEL -> {
-                tagType = decodeByte()
-                if (tagType != TAG_END) {
-                    // Ignore tag name
-                    decodeString()
-                }
-            }
-            CodecMode.LIST -> {
-                tagType = decodeByte()
-                collectionSize = decodeInt()
-            }
-            CodecMode.ARRAY -> {
-                collectionSize = decodeInt()
-            }
+        tagType = decodeByte()
+        if (tagType != TAG_END) {
+            // Ignore tag name
+            decodeString()
         }
     }
 
     override fun beginStructure(descriptor: SerialDescriptor, vararg typeParams: KSerializer<*>): CompositeDecoder =
         when (val kind = descriptor.kind) {
-            StructureKind.MAP -> NBTDecoder(inputStream, CodecMode.MAP, context)
-            StructureKind.LIST -> {
-                val decoderMode = when (tagType) {
-                    TAG_BYTE_ARRAY, TAG_INT_ARRAY, TAG_LONG_ARRAY -> CodecMode.ARRAY
-                    TAG_LIST -> CodecMode.LIST
-                    else -> error("Invalid tag type for list: $tagType")
-                }
-                NBTDecoder(inputStream, decoderMode, context)
+            is StructureKind.MAP -> NBTCompoundDecoder(this) { tagType = it }
+            is StructureKind.LIST -> when (tagType) {
+                TAG_BYTE_ARRAY, TAG_INT_ARRAY, TAG_LONG_ARRAY -> NBTArrayDecoder(this)
+                TAG_LIST -> NBTListDecoder(this) { tagType = it }
+                else -> error("Invalid tag type for list: $tagType")
             }
-            StructureKind.CLASS -> NBTDecoder(inputStream, CodecMode.CLASS, context)
+            is StructureKind.CLASS -> NBTCompoundClassDecoder(this) { tagType = it }
             else -> error("Unsupported kind: $kind")
         }
-
-    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
-        when (decoderMode) {
-            CodecMode.MAP -> {
-                // Maps use even indexes as key and odd as value
-                currentIndex++
-                if (currentIndex.rem(2) == 0) {
-                    tagType = decodeByte()
-                    if (tagType == TAG_END) {
-                        return CompositeDecoder.READ_DONE
-                    }
-                }
-            }
-            CodecMode.CLASS -> {
-                tagType = decodeByte()
-                if (tagType == TAG_END) {
-                    return CompositeDecoder.READ_DONE
-                } else {
-                    currentIndex = descriptor.getElementIndex(decodeString())
-                }
-            }
-            CodecMode.LIST, CodecMode.ARRAY -> currentIndex++
-            else -> error("Cannot get element index in mode: $decoderMode")
-        }
-        return currentIndex
-    }
-
-    // We can decode sequentially because in lists the size is saved up front
-    override fun decodeSequentially(): Boolean = decoderMode == CodecMode.LIST || decoderMode == CodecMode.ARRAY
-    override fun decodeCollectionSize(descriptor: SerialDescriptor): Int = collectionSize
 
     override fun decodeByte(): Byte {
         val i = inputStream.read()
@@ -123,4 +77,133 @@ internal class NBTDecoder(
         }
         return combinedInt
     }
+}
+
+internal class NBTCompoundDecoder(
+    topLevelDecoder: NBTTopLevelDecoder,
+    private val changeTagType: (Byte) -> Unit
+) : AbstractNBTCompositeDecoder(topLevelDecoder) {
+    private var currentIndex: Int = -1
+
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
+        // Maps use even indexes as key and odd as value
+        currentIndex++
+        if (currentIndex.rem(2) == 0) {
+            val tagType = topLevelDecoder.decodeByte()
+            changeTagType(tagType)
+            if (tagType == TAG_END) {
+                return CompositeDecoder.READ_DONE
+            }
+        }
+        return currentIndex
+    }
+}
+
+internal class NBTArrayDecoder(
+    topLevelDecoder: NBTTopLevelDecoder
+) : AbstractNBTCompositeDecoder(topLevelDecoder) {
+
+    private var currentIndex = -1
+
+    private var collectionSize: Int = topLevelDecoder.decodeInt()
+
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
+        currentIndex++
+        if (currentIndex >= collectionSize) {
+            return CompositeDecoder.READ_DONE
+        }
+        return currentIndex
+    }
+
+    override fun decodeSequentially(): Boolean = true
+    override fun decodeCollectionSize(descriptor: SerialDescriptor): Int = collectionSize
+}
+
+internal class NBTListDecoder(
+    topLevelDecoder: NBTTopLevelDecoder,
+    changeTagType: (Byte) -> Unit
+) : AbstractNBTCompositeDecoder(topLevelDecoder) {
+
+    private var currentIndex = -1
+
+    private var collectionSize: Int
+
+    init {
+        changeTagType(topLevelDecoder.decodeByte())
+        collectionSize = topLevelDecoder.decodeInt()
+    }
+
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
+        currentIndex++
+        if (currentIndex >= collectionSize) {
+            return CompositeDecoder.READ_DONE
+        }
+        return currentIndex
+    }
+
+    override fun decodeSequentially(): Boolean = true
+    override fun decodeCollectionSize(descriptor: SerialDescriptor): Int = collectionSize
+}
+
+internal class NBTCompoundClassDecoder(
+    topLevelDecoder: NBTTopLevelDecoder,
+    private val changeTagType: (Byte) -> Unit
+) : AbstractNBTCompositeDecoder(topLevelDecoder) {
+    override fun decodeElementIndex(descriptor: SerialDescriptor): Int {
+        val tagType = topLevelDecoder.decodeByte()
+        changeTagType(tagType)
+        if (tagType == TAG_END) {
+            return CompositeDecoder.READ_DONE
+        }
+        return descriptor.getElementIndex(topLevelDecoder.decodeString())
+    }
+}
+
+internal abstract class AbstractNBTCompositeDecoder(
+    protected val topLevelDecoder: NBTTopLevelDecoder
+) : CompositeDecoder {
+    override val context: SerialModule get() = topLevelDecoder.context
+    override val updateMode: UpdateMode get() = topLevelDecoder.updateMode
+
+    override fun endStructure(descriptor: SerialDescriptor) {
+    }
+
+    override fun decodeBooleanElement(descriptor: SerialDescriptor, index: Int): Boolean =
+        topLevelDecoder.decodeBoolean()
+
+    override fun decodeByteElement(descriptor: SerialDescriptor, index: Int): Byte = topLevelDecoder.decodeByte()
+    override fun decodeCharElement(descriptor: SerialDescriptor, index: Int): Char = topLevelDecoder.decodeChar()
+    override fun decodeDoubleElement(descriptor: SerialDescriptor, index: Int): Double = topLevelDecoder.decodeDouble()
+    override fun decodeFloatElement(descriptor: SerialDescriptor, index: Int): Float = topLevelDecoder.decodeFloat()
+    override fun decodeIntElement(descriptor: SerialDescriptor, index: Int): Int = topLevelDecoder.decodeInt()
+    override fun decodeLongElement(descriptor: SerialDescriptor, index: Int): Long = topLevelDecoder.decodeLong()
+    override fun decodeShortElement(descriptor: SerialDescriptor, index: Int): Short = topLevelDecoder.decodeShort()
+    override fun decodeStringElement(descriptor: SerialDescriptor, index: Int): String = topLevelDecoder.decodeString()
+    override fun decodeUnitElement(descriptor: SerialDescriptor, index: Int) = topLevelDecoder.decodeUnit()
+
+    override fun <T : Any> decodeNullableSerializableElement(
+        descriptor: SerialDescriptor,
+        index: Int,
+        deserializer: DeserializationStrategy<T?>
+    ): T? = topLevelDecoder.decodeNullableSerializableValue(deserializer)
+
+    override fun <T> decodeSerializableElement(
+        descriptor: SerialDescriptor,
+        index: Int,
+        deserializer: DeserializationStrategy<T>
+    ): T = topLevelDecoder.decodeSerializableValue(deserializer)
+
+    override fun <T : Any> updateNullableSerializableElement(
+        descriptor: SerialDescriptor,
+        index: Int,
+        deserializer: DeserializationStrategy<T?>,
+        old: T?
+    ): T? = topLevelDecoder.updateNullableSerializableValue(deserializer, old)
+
+    override fun <T> updateSerializableElement(
+        descriptor: SerialDescriptor,
+        index: Int,
+        deserializer: DeserializationStrategy<T>,
+        old: T
+    ): T = topLevelDecoder.updateSerializableValue(deserializer, old)
 }

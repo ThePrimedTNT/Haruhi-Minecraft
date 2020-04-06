@@ -32,6 +32,6 @@ class NBTFormat(context: SerialModule = EmptyModule) : BinaryFormat {
         }
 
     fun <T> load(deserializer: DeserializationStrategy<T>, inputStream: InputStream): T {
-        return NBTDecoder(inputStream, CodecMode.TOP_LEVEL, context).decode(deserializer)
+        return NBTTopLevelDecoder(inputStream, context).decode(deserializer)
     }
 }

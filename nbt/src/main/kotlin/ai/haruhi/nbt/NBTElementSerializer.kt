@@ -48,14 +48,6 @@ val defaultNBTFormatModule = SerializersModule {
     contextual(NBTLongArraySerializer)
 }
 
-internal enum class CodecMode {
-    TOP_LEVEL,
-    MAP,
-    LIST,
-    ARRAY,
-    CLASS
-}
-
 @SerialInfo
 @Target(AnnotationTarget.PROPERTY)
 annotation class NBTListTag(val type: NBTListType = NBTListType.AUTO)
@@ -75,7 +67,7 @@ object NBTElementSerializer : KSerializer<NBTElement> {
         }
 
     override fun deserialize(decoder: Decoder): NBTElement =
-        when (val tagType = (decoder as NBTDecoder).tagType) {
+        when (val tagType = (decoder as NBTTopLevelDecoder).tagType) {
             TAG_BYTE -> decoder.decodeSerializableValue(NBTByteSerializer)
             TAG_SHORT -> decoder.decodeSerializableValue(NBTShortSerializer)
             TAG_INT -> decoder.decodeSerializableValue(NBTIntSerializer)
