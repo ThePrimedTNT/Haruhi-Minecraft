@@ -133,7 +133,7 @@ internal class NBTListEncoder(
     topLevelEncoder: NBTTopLevelEncoder,
     private val collectionSize: Int
 ) : AbstractNBTCompositeEncoder(topLevelEncoder) {
-    private var internalType: Byte = -1
+    private var internalType: Byte = TAG_END
 
     override fun <T> encodeValue(
         descriptor: SerialDescriptor,
@@ -142,9 +142,10 @@ internal class NBTListEncoder(
         value: T,
         encodeFunction: (T) -> Unit
     ) {
-        if (internalType == (-1).toByte()) {
+        assert(tagType != TAG_END)
+        if (internalType == TAG_END) {
             internalType = tagType
-            topLevelEncoder.encodeByte(internalType)
+            topLevelEncoder.encodeByte(tagType)
             topLevelEncoder.encodeInt(collectionSize)
         }
         require(internalType == tagType) {
@@ -154,9 +155,10 @@ internal class NBTListEncoder(
     }
 
     override fun endStructure(descriptor: SerialDescriptor) {
-        if (internalType == (-1).toByte()) {
+        if (internalType == TAG_END) {
             // never set, put end tag as type instead
             topLevelEncoder.encodeByte(TAG_END)
+            topLevelEncoder.encodeInt(0)
         }
     }
 }
